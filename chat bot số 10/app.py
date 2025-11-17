@@ -6,7 +6,7 @@ import os
 # ----------------------------------------------------
 # ⚠️ BƯỚC 1: DÁN DANH SÁCH MÃ FILE TẠM THỜI VÀO ĐÂY ⚠️
 # CHUỖI NÀY BẮT ĐẦU BẰNG ['files/abc-123', 'files/xyz-456']
-LIST_FILES = ['files/1I0lmDgGJdHfnzIjdLtH4ayXmb83G5dgR', 'files/1pwCceN2dAucZEWytejVCPi6jX5xYItfY', 'files/1XqETTjqIRJ_rUhI_DP--HaR0w3LODTgq'] 
+LIST_FILES = ['files/1O0FKNsyZWufsOzTIKOMD29nJHfW9esEb', 'files/1MNPErWdePbn0KOE4x2WBcsVVJPeBafzd', 'files/1DpvdnT7Hpndzwf7pcvKREd6OM9isjGk7'] 
 # ----------------------------------------------------
 
 # --- CẤU HÌNH KHÁC ---
@@ -115,4 +115,3 @@ if prompt := st.chat_input("Nhập câu hỏi..."):
                         st.rerun() 
                     else:
                         st.error(f"Lỗi: {e}")
-
