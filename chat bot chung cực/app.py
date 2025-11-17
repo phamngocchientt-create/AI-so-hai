@@ -16,7 +16,7 @@ st.title("👨‍🔬 Gia sư Hóa học THCS - Phân hóa trình độ")
 
 with st.sidebar:
     st.success(f"✅ Đã kết nối {len(LIST_FILES)} tài liệu.")
-    st.info("🤖 Model: gemini-2.5-flash")  # Cập nhật lên Gemini 2.5 Flash
+    st.info("🤖 Model: gemini-2.0-flash")  # Cập nhật lên Gemini 2.5 Flash
     with st.expander("Hướng dẫn phân tầng kiến thức"):
         st.write("- Hỏi lý thuyết thông thường: Trả lời từ **[KIẾN THỨC CƠ BẢN]**.")
         st.write("- Hỏi 'Tại sao/Vì sao/Giải thích': Trả lời từ **[PHẦN GIẢI THÍCH]**.")
@@ -111,4 +111,5 @@ if prompt := st.chat_input("Nhập câu hỏi..."):
                 st.markdown(response.text)
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
             except Exception as e:
+
                 st.error(f"Lỗi: {e}")
