@@ -1,9 +1,10 @@
 import io
+import json
 import streamlit as st
+import requests
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-import google.generativeai as genai
 
 # ==========================================
 # CẤU HÌNH TRANG WEB STREAMLIT
@@ -29,7 +30,7 @@ if "lesson_title" not in st.session_state:
     st.session_state["lesson_title"] = "Ke_hoach_bai_day"
 
 # ==========================================
-# CÁC HÀM XỬ LÝ FILE VÀ AI
+# CÁC HÀM XỬ LÝ FILE VÀ GỌI GEMINI API TRỰC TIẾP
 # ==========================================
 def extract_text_from_docx(file_bytes):
     doc = Document(file_bytes)
@@ -44,44 +45,65 @@ def extract_text_from_docx(file_bytes):
             full_text.append(" | ".join(row_data))
     return "\n".join(full_text)
 
-def generate_lesson_plan(api_key, mode, subject, grade, textbook, title, duration, options, sample_content=""):
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+def generate_with_gemini_api(api_key, system_instruction, prompt_text):
+    """Gọi trực tiếp Google Gemini API qua HTTP POST request"""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "contents": [{"parts": [{"text": prompt_text}]}],
+        "systemInstruction": {"parts": [{"text": system_instruction}]},
+        "generationConfig": {"temperature": 0.4}
+    }
     
+    response = requests.post(url, headers=headers, json=payload, timeout=60)
+    if response.status_code != 200:
+        error_msg = response.json().get("error", {}).get("message", response.text)
+        raise Exception(f"Lỗi API Google ({response.status_code}): {error_msg}")
+    
+    data = response.json()
+    candidates = data.get("candidates", [])
+    if candidates:
+        return candidates[0]["content"]["parts"][0]["text"]
+    return "Không nhận được phản hồi từ AI."
+
+def generate_lesson_plan(api_key, mode, subject, grade, textbook, title, duration, options, sample_content=""):
     options_text = ", ".join(options) if options else "Theo chuẩn sư phạm hiện hành"
     
     if mode == "5512":
-        prompt = f"""
-Bạn là chuyên gia sư phạm hàng đầu tại Việt Nam. Hãy soạn kế hoạch bài dạy (giáo án) chuẩn xác theo định dạng CÔNG VĂN 5512 của Bộ Giáo dục & Đào tạo.
-Cấu trúc bài dạy:
-TÊN BÀI DẠY (Môn, Lớp, Bộ sách, Thời lượng)
-I. MỤC TIÊU (1. Kiến thức, 2. Năng lực chung & đặc thù, 3. Phẩm chất)
-II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU (1. Giáo viên, 2. Học sinh)
-III. TIẾN TRÌNH DẠY HỌC (4 hoạt động: 1. Khởi động, 2. Hình thành kiến thức mới, 3. Luyện tập, 4. Vận dụng). Mỗi hoạt động có: a. Mục tiêu, b. Nội dung, c. Sản phẩm, d. Tổ chức thực hiện (Bước 1: Chuyển giao, Bước 2: Thực hiện, Bước 3: Báo cáo thảo luận, Bước 4: Kết luận).
-IV. PHỤ LỤC (Nếu có)
-
-Thông tin bài soạn:
-- Môn học: {subject}
-- Khối lớp: {grade}
-- Bộ sách: {textbook}
-- Tên bài: {title}
-- Thời lượng: {duration}
-- Yêu cầu bổ trợ: {options_text}
-"""
+        sys_ins = (
+            "Bạn là chuyên gia sư phạm hàng đầu tại Việt Nam. "
+            "Hãy soạn kế hoạch bài dạy (giáo án) chuẩn xác theo định dạng CÔNG VĂN 5512 của Bộ Giáo dục & Đào tạo. "
+            "Cấu trúc bài dạy:\n"
+            "TÊN BÀI DẠY (Môn, Lớp, Bộ sách, Thời lượng)\n"
+            "I. MỤC TIÊU (1. Kiến thức, 2. Năng lực chung & đặc thù, 3. Phẩm chất)\n"
+            "II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU (1. Giáo viên, 2. Học sinh)\n"
+            "III. TIẾN TRÌNH DẠY HỌC (4 hoạt động: 1. Khởi động, 2. Hình thành kiến thức mới, 3. Luyện tập, 4. Vận dụng). "
+            "Mỗi hoạt động có: a. Mục tiêu, b. Nội dung, c. Sản phẩm, d. Tổ chức thực hiện (Bước 1: Chuyển giao, Bước 2: Thực hiện, Bước 3: Báo cáo thảo luận, Bước 4: Kết luận).\n"
+            "IV. PHỤ LỤC (Nếu có)"
+        )
+        prompt = (
+            f"Hãy soạn giáo án chi tiết:\n"
+            f"- Môn học: {subject}\n"
+            f"- Khối lớp: {grade}\n"
+            f"- Bộ sách: {textbook}\n"
+            f"- Tên bài: {title}\n"
+            f"- Thời lượng: {duration}\n"
+            f"- Yêu cầu bổ trợ: {options_text}\n"
+        )
     else:
-        prompt = f"""
-Bạn là trợ lý soạn giáo án thông minh. Hãy học và làm theo cấu trúc, cách đặt đề mục, bảng biểu và văn phong từ bài giáo án mẫu sau để viết bài mới:
---- BẮT ĐẦU MẪU ---
-{sample_content[:4000]}
---- KẾT THÚC MẪU ---
-
-Thông tin bài mới:
-- Môn: {subject} - Khối: {grade} - Bộ sách: {textbook}
-- Tên bài mới: {title} ({duration})
-- Yêu cầu: {options_text}
-"""
-    response = model.generate_content(prompt)
-    return response.text
+        sys_ins = (
+            "Bạn là trợ lý soạn giáo án thông minh. "
+            "Hãy học và làm theo cấu trúc, cách đặt đề mục, bảng biểu và văn phong từ bài giáo án mẫu để viết bài mới."
+        )
+        prompt = (
+            f"Dưới đây là GIÁO ÁN MẪU:\n"
+            f"--- BẮT ĐẦU MẪU ---\n{sample_content[:3500]}\n--- KẾT THÚC MẪU ---\n\n"
+            f"Thông tin bài mới:\n"
+            f"- Môn: {subject} - Khối: {grade} - Bộ sách: {textbook}\n"
+            f"- Tên bài mới: {title} ({duration})\n"
+            f"- Yêu cầu: {options_text}\n"
+        )
+    return generate_with_gemini_api(api_key, sys_ins, prompt)
 
 def create_docx_file(content, title):
     doc = Document()
@@ -137,7 +159,6 @@ col_left, col_right = st.columns([1.1, 1.9], gap="medium")
 with col_left:
     st.subheader("⚙️ Thiết lập bài soạn")
     
-    # Kiểm tra xem có cấu hình key trong secrets không, nếu không thì nhập tay
     default_api_key = st.secrets.get("GEMINI_API_KEY", "") if "GEMINI_API_KEY" in st.secrets else ""
     gemini_api_key = st.text_input("🔑 Google Gemini API Key:", value=default_api_key, type="password", help="Lấy tại aistudio.google.com")
     
@@ -189,7 +210,7 @@ if btn_generate_5512:
     elif not title_5512:
         st.warning("⚠️ Vui lòng nhập tên bài học!")
     else:
-        with st.spinner("⏳ Đang tham chiếu chuẩn GDPT 2018 và sinh giáo án..."):
+        with st.spinner("⏳ Đang soạn giáo án theo chuẩn 5512..."):
             try:
                 res = generate_lesson_plan(
                     api_key=gemini_api_key,
