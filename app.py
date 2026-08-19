@@ -33,6 +33,7 @@ if "lesson_title" not in st.session_state:
 # CÁC HÀM XỬ LÝ FILE VÀ GỌI GEMINI API TRỰC TIẾP
 # ==========================================
 def extract_text_from_docx(file_bytes):
+    """Trích xuất toàn bộ văn bản và bảng biểu từ file Word giáo án mẫu"""
     doc = Document(file_bytes)
     full_text = []
     for para in doc.paragraphs:
@@ -46,25 +47,47 @@ def extract_text_from_docx(file_bytes):
     return "\n".join(full_text)
 
 def generate_with_gemini_api(api_key, system_instruction, prompt_text):
-    """Gọi trực tiếp Google Gemini API qua HTTP POST request"""
+    """Gọi trực tiếp Google Gemini API qua HTTP POST với cấu hình tối ưu tốc độ"""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
+    
     payload = {
-        "contents": [{"parts": [{"text": prompt_text}]}],
-        "systemInstruction": {"parts": [{"text": system_instruction}]},
-        "generationConfig": {"temperature": 0.4}
+        "contents": [
+            {
+                "parts": [{"text": prompt_text}]
+            }
+        ],
+        "systemInstruction": {
+            "parts": [{"text": system_instruction}]
+        },
+        "generationConfig": {
+            "temperature": 0.3,
+            "maxOutputTokens": 8192,
+            "thinkingConfig": {
+                "thinkingBudget": 0  # Tắt suy nghĩ ngầm để trả lời ngay lập tức, tránh timeout
+            }
+        }
     }
     
-    response = requests.post(url, headers=headers, json=payload, timeout=180)
-    if response.status_code != 200:
-        error_msg = response.json().get("error", {}).get("message", response.text)
-        raise Exception(f"Lỗi API Google ({response.status_code}): {error_msg}")
-    
-    data = response.json()
-    candidates = data.get("candidates", [])
-    if candidates:
-        return candidates[0]["content"]["parts"][0]["text"]
-    return "Không nhận được phản hồi từ AI."
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        
+        # Nếu phiên bản API không hỗ trợ thinkingConfig, tự động fallback gửi lại payload cơ bản
+        if response.status_code != 200:
+            payload["generationConfig"].pop("thinkingConfig", None)
+            response = requests.post(url, headers=headers, json=payload, timeout=60)
+            
+        if response.status_code != 200:
+            error_msg = response.json().get("error", {}).get("message", response.text)
+            raise Exception(f"Lỗi API Google ({response.status_code}): {error_msg}")
+        
+        data = response.json()
+        candidates = data.get("candidates", [])
+        if candidates:
+            return candidates[0]["content"]["parts"][0]["text"]
+        return "Không nhận được nội dung từ AI."
+    except requests.exceptions.Timeout:
+        raise Exception("Thời gian phản hồi của mạng quá lâu. Vui lòng bấm nút thử lại lần nữa!")
 
 def generate_lesson_plan(api_key, mode, subject, grade, textbook, title, duration, options, sample_content=""):
     options_text = ", ".join(options) if options else "Theo chuẩn sư phạm hiện hành"
