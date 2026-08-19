@@ -47,7 +47,7 @@ def extract_text_from_docx(file_bytes):
 
 def generate_with_gemini_api(api_key, system_instruction, prompt_text):
     """Gọi trực tiếp Google Gemini API qua HTTP POST request"""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{"parts": [{"text": prompt_text}]}],
