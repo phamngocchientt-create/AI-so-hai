@@ -55,7 +55,7 @@ def generate_with_gemini_api(api_key, system_instruction, prompt_text):
         "generationConfig": {"temperature": 0.4}
     }
     
-    response = requests.post(url, headers=headers, json=payload, timeout=60)
+    response = requests.post(url, headers=headers, json=payload, timeout=180)
     if response.status_code != 200:
         error_msg = response.json().get("error", {}).get("message", response.text)
         raise Exception(f"Lỗi API Google ({response.status_code}): {error_msg}")
